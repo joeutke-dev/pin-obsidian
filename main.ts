@@ -126,7 +126,8 @@ export default class PinObsidianPlugin extends Plugin {
 		const win = this.requireWindow();
 		if (!win) return;
 		win.setAlwaysOnTop(this.settings.alwaysOnTop);
-		win.setOpacity(this.settings.opacity);
+		// Translucency applies only while pinned; restore full opacity when unpinned.
+		win.setOpacity(this.settings.alwaysOnTop ? this.settings.opacity : 1.0);
 	}
 
 	toggleAlwaysOnTop() {
@@ -134,6 +135,8 @@ export default class PinObsidianPlugin extends Plugin {
 		const win = this.requireWindow();
 		if (win) {
 			win.setAlwaysOnTop(this.settings.alwaysOnTop);
+			// Apply the chosen translucency when pinning; go fully opaque when unpinning.
+			win.setOpacity(this.settings.alwaysOnTop ? this.settings.opacity : 1.0);
 		}
 		this.updateRibbonIcon();
 		this.saveSettings();
@@ -147,7 +150,9 @@ export default class PinObsidianPlugin extends Plugin {
 	setOpacity(value: number) {
 		this.settings.opacity = value;
 		const win = this.requireWindow();
-		if (win) {
+		// Only reflect the change live while pinned; when unpinned the window stays
+		// fully opaque and this value is remembered for the next time it's pinned.
+		if (win && this.settings.alwaysOnTop) {
 			win.setOpacity(value);
 		}
 		this.saveSettings();
@@ -197,7 +202,11 @@ class PinObsidianSettingTab extends PluginSettingTab {
 				toggle.setValue(this.plugin.settings.alwaysOnTop).onChange(async (value) => {
 					this.plugin.settings.alwaysOnTop = value;
 					const win = getWindow();
-					if (win) win.setAlwaysOnTop(value);
+					if (win) {
+						win.setAlwaysOnTop(value);
+						// Translucency only while pinned; opaque when unpinned.
+						win.setOpacity(value ? this.plugin.settings.opacity : 1.0);
+					}
 					this.plugin.updateRibbonIcon();
 					await this.plugin.saveSettings();
 				})
