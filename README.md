@@ -1,31 +1,24 @@
-# Float on Top — Obsidian Plugin
+# Pin Obsidian
 
-Keep Obsidian floating above all other windows, with adjustable translucency.
+Keep the Obsidian window above all other windows, with adjustable translucency.
 
 ## Features
 
 - **Always on top toggle** — via ribbon icon or command
-- **Translucency** — opacity presets + fine-grained slider (50–100%)
+- **Translucency** — opacity presets plus a fine-grained slider (50–100%)
 - **Persistent state** — remembers your settings between sessions
-- **Hotkey support** — assign keyboard shortcuts to toggle commands
-
-## Installation
-
-2. Copy `main.js`, `manifest.json`, and `styles.css` to:
-   ```
-   <your-vault>/.obsidian/plugins/float-on-top/
-   ```
-3. In Obsidian → Settings → Community Plugins → enable **Float on Top**
+- **Hotkey support** — assign keyboard shortcuts to the toggle commands
 
 ## Usage
 
 | Action | How |
 |---|---|
 | Toggle always-on-top | Click the pin icon in the ribbon |
-| Adjust opacity | Settings → Float on Top → drag slider or pick preset |
+| Toggle via keyboard | Settings → Hotkeys → search "Pin Obsidian" |
+| Adjust opacity | Settings → Pin Obsidian → drag the slider or pick a preset |
 | Cycle presets | Command palette: "Cycle opacity preset" |
 
-## Opacity Presets
+## Opacity presets
 
 | Preset | Value |
 |---|---|
@@ -35,8 +28,23 @@ Keep Obsidian floating above all other windows, with adjustable translucency.
 | Medium | 80% |
 | Heavy | 70% |
 
+## Development
+
+```bash
+npm install      # install dependencies
+npm run dev      # watch + rebuild main.js on change
+npm run build    # type-check and produce a production main.js
+```
+
+The plugin is written in TypeScript (`main.ts`) and bundled to `main.js` with esbuild.
+
 ## Notes
 
-- Desktop only (macOS, Windows, Linux) — uses Electron window APIs
+- Desktop only (macOS, Windows, Linux) — uses the Electron window APIs through `@electron/remote`.
 - Opacity affects the entire Obsidian window. Values above 85% are recommended for readability.
-- Always-on-top and opacity are reset to defaults when the plugin is disabled.
+- Window opacity is supported on macOS and Windows; on Linux it depends on the compositor.
+- Always-on-top and opacity reset to defaults when the plugin is disabled.
+
+## License
+
+[MIT](LICENSE)
