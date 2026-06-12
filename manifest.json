@@ -1,9 +1,9 @@
 {
 	"id": "pin-on-top",
-	"name": "Pin Obsidian",
-	"version": "1.0.2",
+	"name": "Pin on Top",
+	"version": "1.0.3",
 	"minAppVersion": "1.4.0",
-	"description": "Keep the Obsidian window above other windows, with adjustable translucency.",
+	"description": "Keep the window on top of other windows, with adjustable translucency.",
 	"author": "Joe Utke",
 	"authorUrl": "https://github.com/joeutke-dev/pin-obsidian",
 	"isDesktopOnly": true

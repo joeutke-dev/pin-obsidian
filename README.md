@@ -1,6 +1,6 @@
-# Pin Obsidian
+# Pin on Top
 
-Keep the Obsidian window above all other windows, with adjustable translucency.
+Keep the window on top of all other windows, with adjustable translucency.
 
 ## Features
 
@@ -14,8 +14,8 @@ Keep the Obsidian window above all other windows, with adjustable translucency.
 | Action | How |
 |---|---|
 | Toggle always-on-top | Click the pin icon in the ribbon |
-| Toggle via keyboard | Settings → Hotkeys → search "Pin Obsidian" |
-| Adjust opacity | Settings → Pin Obsidian → drag the slider or pick a preset |
+| Toggle via keyboard | Settings → Hotkeys → search "Pin on Top" |
+| Adjust opacity | Settings → Pin on Top → drag the slider or pick a preset |
 | Cycle presets | Command palette: "Cycle opacity preset" |
 
 ## Opacity presets

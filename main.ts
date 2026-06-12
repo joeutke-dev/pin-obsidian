@@ -115,9 +115,9 @@ export default class PinObsidianPlugin extends Plugin {
 		if (!win && !this.warnedNoWindow) {
 			this.warnedNoWindow = true;
 			new Notice(
-				"Pin Obsidian: couldn't access the window. This Obsidian/Electron version may not be supported."
+				"Pin on Top: couldn't access the window. This Obsidian/Electron version may not be supported."
 			);
-			console.error("Pin Obsidian: no Electron window handle available.");
+			console.error("Pin on Top: no Electron window handle available.");
 		}
 		return win;
 	}
@@ -174,10 +174,10 @@ export default class PinObsidianPlugin extends Plugin {
 		if (!this.ribbonIconEl) return;
 		if (this.settings.alwaysOnTop) {
 			this.ribbonIconEl.addClass("pin-on-top-active");
-			this.ribbonIconEl.setAttribute("aria-label", "Pin Obsidian: on — click to disable");
+			this.ribbonIconEl.setAttribute("aria-label", "Pin on Top: on — click to disable");
 		} else {
 			this.ribbonIconEl.removeClass("pin-on-top-active");
-			this.ribbonIconEl.setAttribute("aria-label", "Pin Obsidian: off — click to enable");
+			this.ribbonIconEl.setAttribute("aria-label", "Pin on Top: off — click to enable");
 		}
 	}
 }
