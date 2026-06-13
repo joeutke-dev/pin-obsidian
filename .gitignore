@@ -1,6 +1,5 @@
 # npm
 node_modules/
-package-lock.json
 
 # build output — uploaded to GitHub releases, not committed
 main.js

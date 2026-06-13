@@ -1,10 +1,10 @@
 {
-	"id": "pin-on-top",
+	"id": "float-on-top",
 	"name": "Pin on Top",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"minAppVersion": "1.4.0",
 	"description": "Keep the window on top of other windows, with adjustable translucency.",
 	"author": "Joe Utke",
-	"authorUrl": "https://github.com/joeutke-dev/pin-obsidian",
+	"authorUrl": "https://github.com/joeutke-dev",
 	"isDesktopOnly": true
 }

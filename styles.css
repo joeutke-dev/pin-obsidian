@@ -1,8 +1,8 @@
-/* Pin Obsidian Plugin Styles */
+/* Pin on Top Plugin Styles */
 
 /* Ribbon icon active state — tinted when pinned on top */
-.pin-on-top-active {
-  color: var(--color-accent) !important;
+.side-dock-ribbon-action.pin-on-top-active {
+  color: var(--color-accent);
 }
 
 /* Opacity % label next to the slider */

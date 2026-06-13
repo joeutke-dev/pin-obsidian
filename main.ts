@@ -1,4 +1,6 @@
 import { App, Plugin, PluginSettingTab, Setting, Notice } from "obsidian";
+import { getCurrentWindow } from "@electron/remote";
+import type { BrowserWindow } from "electron";
 
 // Opacity preset options
 const OPACITY_PRESETS: Record<string, number> = {
@@ -9,51 +11,33 @@ const OPACITY_PRESETS: Record<string, number> = {
 	"Heavy (70%)": 0.7,
 };
 
-interface PinObsidianSettings {
+interface PinOnTopSettings {
 	alwaysOnTop: boolean;
 	opacity: number;
 }
 
-const DEFAULT_SETTINGS: PinObsidianSettings = {
+const DEFAULT_SETTINGS: PinOnTopSettings = {
 	alwaysOnTop: false,
 	opacity: 1.0,
 };
 
-/** The subset of the Electron BrowserWindow API this plugin uses. */
-interface PinWindow {
-	setAlwaysOnTop(flag: boolean): void;
-	setOpacity(opacity: number): void;
-}
-
 /**
  * Returns the Electron BrowserWindow for the current Obsidian window, or null.
  *
- * Electron removed the core `remote` module in v14, and Obsidian runs a far
- * newer Electron, so `require("electron").remote` is undefined on current
- * builds. The supported path is the `@electron/remote` package, which Obsidian
- * ships and initializes. We try that first and fall back to the legacy shim so
- * the plugin keeps working on older Obsidian releases.
+ * Modern Obsidian ships and initializes the `@electron/remote` package, so we
+ * use its typed `getCurrentWindow()` helper. If remote access is unavailable
+ * we return null and the caller surfaces a one-time notice.
  */
-function getWindow(): PinWindow | null {
+function getWindow(): BrowserWindow | null {
 	try {
-		// eslint-disable-next-line @typescript-eslint/no-var-requires
-		const remote = require("@electron/remote");
-		if (remote?.getCurrentWindow) return remote.getCurrentWindow();
-	} catch (e) {
-		/* fall through to the legacy shim */
+		return getCurrentWindow();
+	} catch {
+		return null;
 	}
-	try {
-		// eslint-disable-next-line @typescript-eslint/no-var-requires
-		const { remote } = require("electron");
-		if (remote?.getCurrentWindow) return remote.getCurrentWindow();
-	} catch (e) {
-		/* no window access available */
-	}
-	return null;
 }
 
-export default class PinObsidianPlugin extends Plugin {
-	settings: PinObsidianSettings;
+export default class PinOnTopPlugin extends Plugin {
+	settings: PinOnTopSettings;
 	ribbonIconEl: HTMLElement | null = null;
 	private warnedNoWindow = false;
 
@@ -89,7 +73,7 @@ export default class PinObsidianPlugin extends Plugin {
 		this.applyWindowState();
 
 		// Settings tab
-		this.addSettingTab(new PinObsidianSettingTab(this.app, this));
+		this.addSettingTab(new PinOnTopSettingTab(this.app, this));
 	}
 
 	onunload() {
@@ -102,7 +86,7 @@ export default class PinObsidianPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, (await this.loadData()) as Partial<PinOnTopSettings>);
 	}
 
 	async saveSettings() {
@@ -110,12 +94,12 @@ export default class PinObsidianPlugin extends Plugin {
 	}
 
 	/** Returns the window, warning the user once if it can't be reached. */
-	private requireWindow(): PinWindow | null {
+	private requireWindow(): BrowserWindow | null {
 		const win = getWindow();
 		if (!win && !this.warnedNoWindow) {
 			this.warnedNoWindow = true;
 			new Notice(
-				"Pin on Top: couldn't access the window. This Obsidian/Electron version may not be supported."
+				"Pin on Top: couldn't access the window. This Electron version may not be supported."
 			);
 			console.error("Pin on Top: no Electron window handle available.");
 		}
@@ -139,11 +123,11 @@ export default class PinObsidianPlugin extends Plugin {
 			win.setOpacity(this.settings.alwaysOnTop ? this.settings.opacity : 1.0);
 		}
 		this.updateRibbonIcon();
-		this.saveSettings();
+		void this.saveSettings();
 		new Notice(
 			this.settings.alwaysOnTop
-				? "Obsidian is now pinned on top"
-				: "Obsidian is no longer pinned on top"
+				? "Window is now pinned on top"
+				: "Window is no longer pinned on top"
 		);
 	}
 
@@ -155,7 +139,7 @@ export default class PinObsidianPlugin extends Plugin {
 		if (win && this.settings.alwaysOnTop) {
 			win.setOpacity(value);
 		}
-		this.saveSettings();
+		void this.saveSettings();
 	}
 
 	cycleOpacityPreset() {
@@ -182,10 +166,10 @@ export default class PinObsidianPlugin extends Plugin {
 	}
 }
 
-class PinObsidianSettingTab extends PluginSettingTab {
-	plugin: PinObsidianPlugin;
+class PinOnTopSettingTab extends PluginSettingTab {
+	plugin: PinOnTopPlugin;
 
-	constructor(app: App, plugin: PinObsidianPlugin) {
+	constructor(app: App, plugin: PinOnTopPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
@@ -197,7 +181,7 @@ class PinObsidianSettingTab extends PluginSettingTab {
 		// Always on top toggle
 		new Setting(containerEl)
 			.setName("Always on top")
-			.setDesc("Keep the Obsidian window above all other windows.")
+			.setDesc("Keep this window above all other windows.")
 			.addToggle((toggle) =>
 				toggle.setValue(this.plugin.settings.alwaysOnTop).onChange(async (value) => {
 					this.plugin.settings.alwaysOnTop = value;
@@ -247,20 +231,46 @@ class PinObsidianSettingTab extends PluginSettingTab {
 		// Fine-grained slider
 		const sliderSetting = new Setting(containerEl)
 			.setName("Fine-tune opacity")
-			.setDesc("Drag to set a custom opacity level (50–100%).");
+			.setDesc("Drag — or use −/+ — to set a custom opacity level (50–100%).");
+
+		// Nudge opacity by ±1 percentage point, clamped to the slider's 50–100% range.
+		const nudgeOpacity = (deltaPct: number) => {
+			const pct = Math.round(this.plugin.settings.opacity * 100);
+			const next = Math.min(100, Math.max(50, pct + deltaPct));
+			if (next === pct) return; // already at a bound — no-op
+			const opacity = next / 100;
+			this.plugin.setOpacity(opacity);
+			if (sliderEl) sliderEl.value = String(next);
+			if (sliderValueEl) sliderValueEl.textContent = `${next}%`;
+		};
+
+		// Decrease (−) button — sits before the slider.
+		sliderSetting.addExtraButton((btn) =>
+			btn
+				.setIcon("minus")
+				.setTooltip("Decrease opacity 1%")
+				.onClick(() => nudgeOpacity(-1))
+		);
 
 		sliderSetting.addSlider((slider) => {
 			sliderEl = slider.sliderEl;
 			slider
 				.setLimits(50, 100, 1)
 				.setValue(Math.round(this.plugin.settings.opacity * 100))
-				.setDynamicTooltip()
 				.onChange(async (value) => {
 					const opacity = value / 100;
 					this.plugin.setOpacity(opacity);
 					if (sliderValueEl) sliderValueEl.textContent = `${value}%`;
 				});
 		});
+
+		// Increase (+) button — sits after the slider.
+		sliderSetting.addExtraButton((btn) =>
+			btn
+				.setIcon("plus")
+				.setTooltip("Increase opacity 1%")
+				.onClick(() => nudgeOpacity(1))
+		);
 
 		// Value label next to the slider
 		sliderValueEl = sliderSetting.controlEl.createSpan({
