@@ -1,8 +1,13 @@
 Keep the window on top of all other windows, with adjustable translucency.
 
-https://github.com/user-attachments/assets/d62e9554-3678-47da-b364-8af26245faa5
+<img width="1112" height="720" alt="pinontop" src="https://github.com/user-attachments/assets/875f6064-b31c-4e88-a0e6-3992a91e5d1a" />
+
 
 ## Features
+
+
+
+
 
 - **Always on top toggle** — via ribbon icon or command
 - **Translucency** — opacity presets plus a fine-grained slider
