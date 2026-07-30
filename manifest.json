@@ -1,7 +1,7 @@
 {
 	"id": "float-on-top",
 	"name": "Pin on Top",
-	"version": "1.0.5",
+	"version": "1.0.6",
 	"minAppVersion": "1.4.0",
 	"description": "Keep the window on top of other windows, with adjustable translucency.",
 	"author": "Joe Utke",
