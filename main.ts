@@ -1,6 +1,6 @@
 import { App, Plugin, PluginSettingTab, Setting, Notice } from "obsidian";
-import { getCurrentWindow, BrowserWindow, app } from "@electron/remote";
-import type { BrowserWindow as ElectronWindow } from "electron";
+import { getCurrentWindow } from "@electron/remote";
+import type { BrowserWindow } from "electron";
 
 // Opacity preset options
 const OPACITY_PRESETS: Record<string, number> = {
@@ -28,7 +28,7 @@ const DEFAULT_SETTINGS: PinOnTopSettings = {
  * use its typed `getCurrentWindow()` helper. If remote access is unavailable
  * we return null and the caller surfaces a one-time notice.
  */
-function getWindow(): ElectronWindow | null {
+function getWindow(): BrowserWindow | null {
 	try {
 		return getCurrentWindow();
 	} catch {
@@ -36,54 +36,10 @@ function getWindow(): ElectronWindow | null {
 	}
 }
 
-/**
- * Every Electron BrowserWindow for this Obsidian instance — the main window
- * plus any *separate* windows such as the Settings window (modern Obsidian opens
- * Settings in its own window) and popped-out leaves. `setAlwaysOnTop` only ever
- * affects the one window it's called on, so pinning needs the full set. Falls
- * back to just the current window if the remote BrowserWindow module can't be
- * reached.
- */
-function getAllWindows(): ElectronWindow[] {
-	try {
-		const wins = BrowserWindow.getAllWindows();
-		if (wins && wins.length) return wins;
-	} catch {
-		/* fall through to the current-window fallback */
-	}
-	const cur = getWindow();
-	return cur ? [cur] : [];
-}
-
 export default class PinOnTopPlugin extends Plugin {
 	settings: PinOnTopSettings;
 	ribbonIconEl: HTMLElement | null = null;
 	private warnedNoWindow = false;
-
-	/**
-	 * Pins windows that open *after* pinning is enabled — most importantly the
-	 * separate Settings window, but also any popped-out leaf. Bound once so it
-	 * can be removed on unload. No-op while unpinned.
-	 */
-	private readonly onWindowCreated = (_event: unknown, win: ElectronWindow) => {
-		if (!this.settings.alwaysOnTop) return;
-		const pin = () => {
-			try {
-				win.setAlwaysOnTop(true);
-				win.setOpacity(this.settings.opacity);
-			} catch {
-				/* window was destroyed before we could pin it */
-			}
-		};
-		pin();
-		// Some windows finish their own setup slightly after creation and reset
-		// these; re-apply once the window is shown so our state wins.
-		try {
-			win.once("show", pin);
-		} catch {
-			/* 'show' unavailable or already fired — the immediate pin covers it */
-		}
-	};
 
 	async onload() {
 		await this.loadSettings();
@@ -113,36 +69,19 @@ export default class PinOnTopPlugin extends Plugin {
 			},
 		});
 
-		// Apply saved state on load (to every existing window)
+		// Apply saved state on load
 		this.applyWindowState();
-
-		// Keep windows opened later — notably the separate Settings window —
-		// pinned too, the moment they appear.
-		try {
-			app.on("browser-window-created", this.onWindowCreated);
-		} catch {
-			/* remote app unavailable — main-window pinning still works */
-		}
 
 		// Settings tab
 		this.addSettingTab(new PinOnTopSettingTab(this.app, this));
 	}
 
 	onunload() {
-		// Stop pinning newly-created windows.
-		try {
-			app.off("browser-window-created", this.onWindowCreated);
-		} catch {
-			/* nothing to remove */
-		}
-		// Restore every window: disable always-on-top and full opacity.
-		for (const win of getAllWindows()) {
-			try {
-				win.setAlwaysOnTop(false);
-				win.setOpacity(1.0);
-			} catch {
-				/* skip windows that are already gone */
-			}
+		// Restore full opacity and disable always-on-top when the plugin unloads
+		const win = getWindow();
+		if (win) {
+			win.setAlwaysOnTop(false);
+			win.setOpacity(1.0);
 		}
 	}
 
@@ -155,7 +94,7 @@ export default class PinOnTopPlugin extends Plugin {
 	}
 
 	/** Returns the window, warning the user once if it can't be reached. */
-	private requireWindow(): ElectronWindow | null {
+	private requireWindow(): BrowserWindow | null {
 		const win = getWindow();
 		if (!win && !this.warnedNoWindow) {
 			this.warnedNoWindow = true;
@@ -167,28 +106,22 @@ export default class PinOnTopPlugin extends Plugin {
 		return win;
 	}
 
-	/** Apply the current pin + opacity settings to EVERY window (main window,
-	 * the separate Settings window, and any popouts). */
 	applyWindowState() {
-		const wins = getAllWindows();
-		if (!wins.length) {
-			this.requireWindow(); // surface the one-time "no window" notice
-			return;
-		}
-		for (const win of wins) {
-			try {
-				win.setAlwaysOnTop(this.settings.alwaysOnTop);
-				// Translucency applies only while pinned; restore full opacity when unpinned.
-				win.setOpacity(this.settings.alwaysOnTop ? this.settings.opacity : 1.0);
-			} catch {
-				/* a window may have been destroyed mid-iteration — skip it */
-			}
-		}
+		const win = this.requireWindow();
+		if (!win) return;
+		win.setAlwaysOnTop(this.settings.alwaysOnTop);
+		// Translucency applies only while pinned; restore full opacity when unpinned.
+		win.setOpacity(this.settings.alwaysOnTop ? this.settings.opacity : 1.0);
 	}
 
 	toggleAlwaysOnTop() {
 		this.settings.alwaysOnTop = !this.settings.alwaysOnTop;
-		this.applyWindowState();
+		const win = this.requireWindow();
+		if (win) {
+			win.setAlwaysOnTop(this.settings.alwaysOnTop);
+			// Apply the chosen translucency when pinning; go fully opaque when unpinning.
+			win.setOpacity(this.settings.alwaysOnTop ? this.settings.opacity : 1.0);
+		}
 		this.updateRibbonIcon();
 		void this.saveSettings();
 		new Notice(
@@ -200,17 +133,11 @@ export default class PinOnTopPlugin extends Plugin {
 
 	setOpacity(value: number) {
 		this.settings.opacity = value;
-		// Only reflect the change live while pinned; when unpinned windows stay
-		// fully opaque and this value is remembered for the next time. Applies to
-		// every window so the Settings window matches the main one.
-		if (this.settings.alwaysOnTop) {
-			for (const win of getAllWindows()) {
-				try {
-					win.setOpacity(value);
-				} catch {
-					/* skip destroyed windows */
-				}
-			}
+		const win = this.requireWindow();
+		// Only reflect the change live while pinned; when unpinned the window stays
+		// fully opaque and this value is remembered for the next time it's pinned.
+		if (win && this.settings.alwaysOnTop) {
+			win.setOpacity(value);
 		}
 		void this.saveSettings();
 	}
@@ -254,12 +181,16 @@ class PinOnTopSettingTab extends PluginSettingTab {
 		// Always on top toggle
 		new Setting(containerEl)
 			.setName("Always on top")
-			.setDesc("Keep Obsidian — including its Settings window — above all other windows.")
+			.setDesc("Keep this window above all other windows.")
 			.addToggle((toggle) =>
 				toggle.setValue(this.plugin.settings.alwaysOnTop).onChange(async (value) => {
 					this.plugin.settings.alwaysOnTop = value;
-					// Apply to every window (main + this Settings window + popouts).
-					this.plugin.applyWindowState();
+					const win = getWindow();
+					if (win) {
+						win.setAlwaysOnTop(value);
+						// Translucency only while pinned; opaque when unpinned.
+						win.setOpacity(value ? this.plugin.settings.opacity : 1.0);
+					}
 					this.plugin.updateRibbonIcon();
 					await this.plugin.saveSettings();
 				})
