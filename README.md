@@ -11,6 +11,7 @@ Keep the window on top of all other windows, with adjustable translucency.
 
 - **Always on top toggle** — via ribbon icon or command
 - **Translucency** — opacity presets plus a fine-grained slider
+- **All windows** — pinning and translucency apply to Obsidian's separate Settings window and popped-out panes too, including windows opened after you pin
 
 ## Development
 

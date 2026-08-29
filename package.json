@@ -1,6 +1,6 @@
 {
 	"name": "float-on-top",
-	"version": "1.0.8",
+	"version": "1.0.9",
 	"description": "Keep the window above other windows, with adjustable translucency.",
 	"main": "main.js",
 	"scripts": {
